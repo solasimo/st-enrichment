@@ -1,6 +1,7 @@
 export const LEAD_FIELDS = [
   'Lead ID',
   'email domain',
+  'country',
   'company',
   'company description',
   'product description',
@@ -12,6 +13,8 @@ export const LEAD_FIELDS = [
   'company employees',
   'company phone',
   'startup information',
+  'good fit',
+  'good fit notes',
 ] as const
 
 export type LeadField = (typeof LEAD_FIELDS)[number]
@@ -78,7 +81,7 @@ export function toCSV(headers: string[], rows: LeadRow[]): string {
   return lines.join('\n')
 }
 
-// Map CSV column names → Supabase column names
+// Fields cached in Supabase by domain (country-independent)
 export const CSV_TO_DB: Record<string, string> = {
   company: 'company',
   'company description': 'company_description',
@@ -93,10 +96,16 @@ export const CSV_TO_DB: Record<string, string> = {
   'startup information': 'startup_information',
 }
 
+// Fields NOT cached (country-dependent or per-lead)
+export const UNCACHED_FIELDS = ['good fit', 'good fit notes']
+
 export const DB_TO_CSV: Record<string, string> = Object.fromEntries(
   Object.entries(CSV_TO_DB).map(([k, v]) => [v, k])
 )
 
 export function countEmptyEnrichableFields(row: LeadRow): number {
-  return Object.keys(CSV_TO_DB).filter((f) => !row[f]).length
+  const cachedEmpty = Object.keys(CSV_TO_DB).filter((f) => !row[f]).length
+  const uncachedEmpty = UNCACHED_FIELDS.filter((f) => !row[f]).length
+  // company description is always re-evaluated if country is present
+  return cachedEmpty + uncachedEmpty
 }
