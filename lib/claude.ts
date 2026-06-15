@@ -52,10 +52,11 @@ Example: {"company": "Acme Corp", "company revenue": "$120M", "company employees
   })
 
   // Extract text blocks only (skip tool_use)
-  const textBlocks = response.content.filter((b) => b.type === 'text')
+  const content = response.content as Array<{ type: string; text?: string }>
+  const textBlocks = content.filter((b) => b.type === 'text')
   if (!textBlocks.length) throw new Error('No text response from Claude')
 
-  const raw = textBlocks.map((b) => (b as { type: 'text'; text: string }).text).join('')
+  const raw = textBlocks.map((b) => b.text ?? '').join('')
   const clean = raw.replace(/```json|```/g, '').trim()
 
   let parsed: Record<string, string>
