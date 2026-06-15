@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { parseCSV, toCSV, countEmptyEnrichableFields, LeadRow } from '@/lib/csv'
+import { parseCSV, toCSV, countEmptyEnrichableFields, LeadRow, UNCACHED_FIELDS } from "@/lib/csv"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -171,9 +171,14 @@ export default function Home() {
     setIsRunning(false)
   }
 
+  const OUTPUT_EXTRA_FIELDS = UNCACHED_FIELDS // good fit, good fit notes
+
   const downloadCSV = () => {
     if (!enrichedRows || !csvData) return
-    const content = toCSV(csvData.headers, enrichedRows)
+    // Add any output-only columns not present in the original CSV
+    const extraCols = OUTPUT_EXTRA_FIELDS.filter((f) => !csvData.headers.includes(f))
+    const outputHeaders = [...csvData.headers, ...extraCols]
+    const content = toCSV(outputHeaders, enrichedRows)
     const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
