@@ -20,3 +20,11 @@ export interface EnrichedDomain {
   startup_information: string | null
   enriched_at: string
 }
+
+export interface GoodFitCache {
+  email_domain: string
+  country: string
+  good_fit: string | null
+  good_fit_notes: string | null
+  evaluated_at: string
+}
