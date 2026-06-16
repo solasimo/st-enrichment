@@ -224,6 +224,16 @@ export default function DatabasePage() {
                 </div>
               ))}
 
+              {/* Good fit panel */}
+              {selected['good fit'] && (
+                <div style={{ padding: '12px 14px', borderRadius: 6, background: selected['good fit'] === 'YES' ? '#E6F4ED' : '#FDEAEA', border: `1px solid ${selected['good fit'] === 'YES' ? '#A7D7BE' : '#F5C2C7'}` }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: selected['good fit'] === 'YES' ? '#0A7A3E' : '#C0182A', marginBottom: 4 }}>
+                    GOOD FIT: {selected['good fit']}
+                  </div>
+                  <div style={{ fontSize: 13, color: '#2A2D38' }}>{selected['good fit notes'] || '—'}</div>
+                </div>
+              )}
+
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8, borderTop: '1px solid #EDEEF2' }}>
                 <button onClick={handleSave} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
