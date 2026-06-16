@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { CSV_TO_DB } from '@/lib/csv'
 
@@ -21,6 +21,8 @@ export default function DatabasePage() {
   const [saveMsg, setSaveMsg] = useState('')
   const [reEnriching, setReEnriching] = useState(false)
   const [reEnrichMsg, setReEnrichMsg] = useState('')
+
+  const [recentlyOpened, setRecentlyOpened] = useState<CompanyRecord[]>([])
 
   // Add new domain state
   const [newDomain, setNewDomain] = useState('')
@@ -54,8 +56,24 @@ export default function DatabasePage() {
     EDITABLE_FIELDS.forEach((f) => { fields[f] = record[f] || '' })
     setEditFields(fields)
     setSaveMsg('')
+    setReEnrichMsg('')
     setView('detail')
+    // Track recently opened (max 10, most recent first, no duplicates)
+    setRecentlyOpened((prev) => {
+      const filtered = prev.filter((r) => r['email domain'] !== record['email domain'])
+      const updated = [record, ...filtered].slice(0, 10)
+      try { localStorage.setItem('st_recently_opened', JSON.stringify(updated)) } catch {}
+      return updated
+    })
   }
+
+  // Load recently opened from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('st_recently_opened')
+      if (stored) setRecentlyOpened(JSON.parse(stored))
+    } catch {}
+  }, [])
 
   const handleSave = async () => {
     if (!selected) return
@@ -192,6 +210,32 @@ export default function DatabasePage() {
               </div>
 
               {searching && <div style={{ fontSize: 13, color: '#9EA3B0', marginTop: 12 }}>Searching…</div>}
+
+              {/* Recently opened — shown when search bar is empty */}
+              {!query && !searching && recentlyOpened.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#9EA3B0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Recently opened</div>
+                  <div style={{ border: '1px solid #EDEEF2', borderRadius: 6, overflow: 'hidden' }}>
+                    {recentlyOpened.map((r, i) => (
+                      <div key={i} onClick={() => openDetail(r)}
+                        style={{ padding: '12px 16px', borderBottom: i < recentlyOpened.length - 1 ? '1px solid #EDEEF2' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#F7F8FA')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
+                      >
+                        <div style={{ width: 36, height: 36, background: '#E8EDF8', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 13, fontWeight: 700, color: '#03318C' }}>
+                          {(r['company'] || r['email domain'] || '?')[0].toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#2A2D38' }}>{r['company'] || '—'}</div>
+                          <div style={{ fontSize: 12, color: '#9EA3B0', marginTop: 2 }}>{r['email domain']} {r['enriched_at'] ? `· cached ${enrichedDate(r['enriched_at'])}` : ''}</div>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#9EA3B0' }}>{r['company industries'] || ''}</div>
+                        <svg width="14" height="14" fill="none" stroke="#9EA3B0" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {!searching && results.length > 0 && (
                 <div style={{ marginTop: 16, border: '1px solid #EDEEF2', borderRadius: 6, overflow: 'hidden' }}>
