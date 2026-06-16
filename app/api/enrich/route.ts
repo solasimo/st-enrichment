@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, EnrichedDomain, GoodFitCache } from '@/lib/supabase'
+import { getDomain, upsertDomain, getGoodFit, upsertGoodFit } from '@/lib/db'
 import { enrichDomain, evaluateGoodFit } from '@/lib/claude'
 import { CSV_TO_DB, DB_TO_CSV, LeadRow } from '@/lib/csv'
 
@@ -13,72 +13,47 @@ export async function POST(req: NextRequest) {
     const normalizedDomain = domain.toLowerCase().trim()
     const country = (existingData['country'] || '').toUpperCase()
 
-    // ── 1. Check domain cache ─────────────────────────────────────────────────
-    const { data: cached, error: cacheError } = await supabase
-      .from('enriched_domains')
-      .select('*')
-      .eq('email_domain', normalizedDomain)
-      .single()
+    // 1. Check domain cache
+    const cached = await getDomain(normalizedDomain)
 
-    if (cached && !cacheError) {
-      // Build result from cached domain fields
+    if (cached) {
       const result: LeadRow = { ...existingData }
       Object.entries(DB_TO_CSV).forEach(([dbCol, csvField]) => {
-        const val = (cached as EnrichedDomain)[dbCol as keyof EnrichedDomain]
+        const val = cached[dbCol as keyof typeof cached]
         if (val && !result[csvField]) result[csvField] = String(val)
       })
 
-      // ── 2. Check good fit cache (domain + country) ────────────────────────
-      const fitCacheKey = `${normalizedDomain}::${country}`
-      const { data: cachedFit } = await supabase
-        .from('good_fit_cache')
-        .select('*')
-        .eq('email_domain', normalizedDomain)
-        .eq('country', country)
-        .single()
-
+      // Check good fit cache
+      const cachedFit = await getGoodFit(normalizedDomain, country)
       if (cachedFit) {
-        result['good fit'] = (cachedFit as GoodFitCache).good_fit || ''
-        result['good fit notes'] = (cachedFit as GoodFitCache).good_fit_notes || ''
+        result['good fit'] = cachedFit.good_fit || ''
+        result['good fit notes'] = cachedFit.good_fit_notes || ''
       } else {
-        // Evaluate and cache good fit
         const fit = await evaluateGoodFit(result, country)
         Object.entries(fit).forEach(([k, v]) => { if (v) result[k] = v })
-
-        await supabase.from('good_fit_cache').upsert({
-          email_domain: normalizedDomain,
-          country,
-          good_fit: fit['good fit'] || null,
-          good_fit_notes: fit['good fit notes'] || null,
-        }, { onConflict: 'email_domain,country' })
+        await upsertGoodFit(normalizedDomain, country, fit['good fit'] || '', fit['good fit notes'] || '')
       }
 
       return NextResponse.json({ result, source: 'cache', cachedAt: cached.enriched_at })
     }
 
-    // ── 3. Not cached — full enrichment ───────────────────────────────────────
+    // 2. Full enrichment
     const enriched = await enrichDomain(normalizedDomain, existingData)
 
-    // Save domain fields to enriched_domains
+    // Save domain fields
     const dbRow: Record<string, string | null> = { email_domain: normalizedDomain }
     Object.entries(CSV_TO_DB).forEach(([csvField, dbCol]) => {
       dbRow[dbCol] = enriched[csvField] || existingData[csvField] || null
     })
-    await supabase.from('enriched_domains').upsert(dbRow, { onConflict: 'email_domain' })
+    await upsertDomain(dbRow)
 
-    // Save good fit to good_fit_cache
+    // Save good fit
     if (enriched['good fit']) {
-      await supabase.from('good_fit_cache').upsert({
-        email_domain: normalizedDomain,
-        country,
-        good_fit: enriched['good fit'] || null,
-        good_fit_notes: enriched['good fit notes'] || null,
-      }, { onConflict: 'email_domain,country' })
+      await upsertGoodFit(normalizedDomain, country, enriched['good fit'], enriched['good fit notes'] || '')
     }
 
-    // Merge into result
     const result: LeadRow = { ...existingData }
-    Object.entries(enriched).forEach(([csvField, val]) => { if (val) result[csvField] = val })
+    Object.entries(enriched).forEach(([k, v]) => { if (v) result[k] = v })
 
     return NextResponse.json({ result, source: 'ai' })
   } catch (err) {
