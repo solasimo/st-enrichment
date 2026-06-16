@@ -17,7 +17,6 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Convert DB columns to CSV field names for the frontend
   const results = (data || []).map((row) => {
     const out: Record<string, string> = { 'email domain': row.email_domain, enriched_at: row.enriched_at }
     Object.entries(DB_TO_CSV).forEach(([dbCol, csvField]) => {
@@ -35,21 +34,32 @@ export async function POST(req: NextRequest) {
   if (!domain) return NextResponse.json({ error: 'Missing domain' }, { status: 400 })
 
   const normalizedDomain = domain.toLowerCase().trim()
+  const normalizedCountry = (country || '').toUpperCase()
 
-  const enriched = await enrichDomain(normalizedDomain, { country: country || '' })
+  // Full enrichment (includes good fit)
+  const enriched = await enrichDomain(normalizedDomain, { country: normalizedCountry })
 
+  // Save domain fields to enriched_domains
   const dbRow: Record<string, string | null> = { email_domain: normalizedDomain }
   Object.entries(CSV_TO_DB).forEach(([csvField, dbCol]) => {
     dbRow[dbCol] = enriched[csvField] || null
   })
-
   const { error } = await supabase
     .from('enriched_domains')
     .upsert(dbRow, { onConflict: 'email_domain' })
-
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Return in CSV-field format
+  // Save good fit to good_fit_cache
+  if (enriched['good fit']) {
+    await supabase.from('good_fit_cache').upsert({
+      email_domain: normalizedDomain,
+      country: normalizedCountry,
+      good_fit: enriched['good fit'] || null,
+      good_fit_notes: enriched['good fit notes'] || null,
+    }, { onConflict: 'email_domain,country' })
+  }
+
+  // Build result with all fields including good fit
   const result: Record<string, string> = { 'email domain': normalizedDomain }
   Object.entries(DB_TO_CSV).forEach(([dbCol, csvField]) => {
     result[csvField] = dbRow[dbCol] || ''
