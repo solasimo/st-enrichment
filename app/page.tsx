@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import Link from 'next/link'
 import { parseCSV, toCSV, countEmptyEnrichableFields, LeadRow, UNCACHED_FIELDS } from "@/lib/csv"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -181,6 +182,11 @@ export default function Home() {
       <header style={{ background: '#03318C', color: 'white', height: 56, display: 'flex', alignItems: 'center', padding: '0 32px', gap: 16, boxShadow: '0 2px 8px rgba(3,49,140,0.3)' }}>
         <div style={{ width: 32, height: 32, background: '#E4002B', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>ST</div>
         <span style={{ fontWeight: 600, fontSize: 15 }}>Lead Enrichment</span>
+        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.2)', margin: '0 4px' }} />
+        <nav style={{ display: 'flex', gap: 4 }}>
+          <Link href="/" style={{ color: 'white', textDecoration: 'none', fontSize: 13, padding: '4px 10px', borderRadius: 4, background: 'rgba(255,255,255,0.15)' }}>CSV Upload</Link>
+          <Link href="/database" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: 13, padding: '4px 10px', borderRadius: 4 }}>Database</Link>
+        </nav>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.2)', margin: '0 4px' }} />
         <span style={{ fontSize: 11, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 12, padding: '3px 10px', letterSpacing: '0.04em' }}>Internal · Digital Marketing</span>
       </header>
