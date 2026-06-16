@@ -6,6 +6,7 @@ import { CSV_TO_DB, DB_TO_CSV } from '@/lib/csv'
 // GET /api/domain?q=hms.se  → search by domain or company name
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim().toLowerCase()
+  const country = (req.nextUrl.searchParams.get('country') || '').toUpperCase()
   if (!q) return NextResponse.json({ results: [] })
 
   const { data, error } = await supabase
@@ -17,11 +18,30 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // For each result, fetch good fit from good_fit_cache
+  const domains = (data || []).map((r) => r.email_domain)
+  const { data: fitData } = await supabase
+    .from('good_fit_cache')
+    .select('*')
+    .in('email_domain', domains)
+
+  // Index fit data by domain+country
+  const fitMap: Record<string, { good_fit: string; good_fit_notes: string }> = {}
+  ;(fitData || []).forEach((f) => {
+    fitMap[f.email_domain] = { good_fit: f.good_fit || '', good_fit_notes: f.good_fit_notes || '' }
+  })
+
   const results = (data || []).map((row) => {
     const out: Record<string, string> = { 'email domain': row.email_domain, enriched_at: row.enriched_at }
     Object.entries(DB_TO_CSV).forEach(([dbCol, csvField]) => {
       out[csvField] = row[dbCol] || ''
     })
+    // Add good fit from cache
+    const fit = fitMap[row.email_domain]
+    if (fit) {
+      out['good fit'] = fit.good_fit
+      out['good fit notes'] = fit.good_fit_notes
+    }
     return out
   })
 
@@ -36,7 +56,6 @@ export async function POST(req: NextRequest) {
   const normalizedDomain = domain.toLowerCase().trim()
   const normalizedCountry = (country || '').toUpperCase()
 
-  // Full enrichment (includes good fit)
   const enriched = await enrichDomain(normalizedDomain, { country: normalizedCountry })
 
   // Save domain fields to enriched_domains
