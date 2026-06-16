@@ -19,6 +19,8 @@ export default function DatabasePage() {
   const [editFields, setEditFields] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
+  const [reEnriching, setReEnriching] = useState(false)
+  const [reEnrichMsg, setReEnrichMsg] = useState('')
 
   // Add new domain state
   const [newDomain, setNewDomain] = useState('')
@@ -76,6 +78,35 @@ export default function DatabasePage() {
       setSaveMsg('Error: ' + (err instanceof Error ? err.message : String(err)))
     }
     setSaving(false)
+  }
+
+  const handleReEnrich = async () => {
+    if (!selected) return
+    setReEnriching(true)
+    setReEnrichMsg('')
+    try {
+      const res = await fetch('/api/domain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: selected['email domain'], country: selected['country'] || '' }),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      const { result } = await res.json()
+      // Update selected and editFields with new data
+      setSelected((prev) => prev ? { ...prev, ...result } : prev)
+      setEditFields((prev) => {
+        const updated = { ...prev }
+        EDITABLE_FIELDS.forEach((f) => { if (result[f]) updated[f] = result[f] })
+        return updated
+      })
+      setResults((prev) => prev.map((r) =>
+        r['email domain'] === selected['email domain'] ? { ...r, ...result } : r
+      ))
+      setReEnrichMsg('Re-enriched successfully')
+    } catch (err) {
+      setReEnrichMsg('Error: ' + (err instanceof Error ? err.message : String(err)))
+    }
+    setReEnriching(false)
   }
 
   const handleEnrich = async () => {
@@ -198,9 +229,23 @@ export default function DatabasePage() {
               <button onClick={() => setView('search')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#9EA3B0', display: 'flex', padding: 4 }}>
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 14, color: '#03318C' }}>{selected['company'] || selected['email domain']}</div>
                 <div style={{ fontSize: 12, color: '#9EA3B0', marginTop: 2 }}>{selected['email domain']} · cached {enrichedDate(selected['enriched_at'])}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {reEnrichMsg && <span style={{ fontSize: 12, color: reEnrichMsg.startsWith('Error') ? '#E4002B' : '#0A7A3E', fontWeight: 500 }}>{reEnrichMsg}</span>}
+                <button
+                  onClick={handleReEnrich}
+                  disabled={reEnriching}
+                  title="Re-enrich with AI"
+                  style={{ border: '1.5px solid #03318C', background: 'white', color: '#03318C', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: reEnriching ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, opacity: reEnriching ? 0.6 : 1 }}
+                >
+                  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ animation: reEnriching ? 'spin 1s linear infinite' : 'none' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {reEnriching ? 'Updating…' : 'Re-enrich with AI'}
+                </button>
               </div>
             </div>
             <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
