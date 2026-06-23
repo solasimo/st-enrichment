@@ -316,8 +316,15 @@ export default function DatabasePage() {
               {/* Good fit panel */}
               {selected['good fit'] && (
                 <div style={{ padding: '12px 14px', borderRadius: 6, background: selected['good fit'] === 'YES' ? '#E6F4ED' : '#FDEAEA', border: `1px solid ${selected['good fit'] === 'YES' ? '#A7D7BE' : '#F5C2C7'}` }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: selected['good fit'] === 'YES' ? '#0A7A3E' : '#C0182A', marginBottom: 4 }}>
-                    GOOD FIT: {selected['good fit']}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: selected['good fit'] === 'YES' ? '#0A7A3E' : '#C0182A' }}>
+                      GOOD FIT: {selected['good fit']}
+                    </div>
+                    {selected['rejection reason'] && (
+                      <span style={{ fontSize: 11, fontWeight: 600, background: '#FDEAEA', color: '#C0182A', border: '1px solid #F5C2C7', borderRadius: 12, padding: '2px 10px' }}>
+                        {selected['rejection reason']}
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 13, color: '#2A2D38' }}>{selected['good fit notes'] || '—'}</div>
                 </div>
@@ -397,8 +404,15 @@ export default function DatabasePage() {
                     ))}
                     {enrichResult['good fit'] && (
                       <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 6, background: enrichResult['good fit'] === 'YES' ? '#E6F4ED' : '#FDEAEA', border: `1px solid ${enrichResult['good fit'] === 'YES' ? '#A7D7BE' : '#F5C2C7'}` }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: enrichResult['good fit'] === 'YES' ? '#0A7A3E' : '#C0182A', marginBottom: 4 }}>
-                          GOOD FIT: {enrichResult['good fit']}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: enrichResult['good fit'] === 'YES' ? '#0A7A3E' : '#C0182A' }}>
+                            GOOD FIT: {enrichResult['good fit']}
+                          </div>
+                          {enrichResult['rejection reason'] && (
+                            <span style={{ fontSize: 11, fontWeight: 600, background: '#FDEAEA', color: '#C0182A', border: '1px solid #F5C2C7', borderRadius: 12, padding: '2px 10px' }}>
+                              {enrichResult['rejection reason']}
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: 13, color: '#2A2D38' }}>{enrichResult['good fit notes']}</div>
                       </div>
