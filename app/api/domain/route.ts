@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { searchDomains, upsertDomain, upsertGoodFit, getGoodFitForDomains } from '@/lib/db'
 import { enrichDomain } from '@/lib/claude'
@@ -11,8 +13,14 @@ export async function GET(req: NextRequest) {
   const domainKeys = domains.map((d) => d.email_domain)
   const fitRows = await getGoodFitForDomains(domainKeys)
 
-  const fitMap: Record<string, { good_fit: string; good_fit_notes: string }> = {}
-  fitRows.forEach((f) => { fitMap[f.email_domain] = { good_fit: f.good_fit || '', good_fit_notes: f.good_fit_notes || '' } })
+  const fitMap: Record<string, { good_fit: string; good_fit_notes: string; rejection_reason: string }> = {}
+  fitRows.forEach((f) => {
+    fitMap[f.email_domain] = {
+      good_fit: f.good_fit || '',
+      good_fit_notes: f.good_fit_notes || '',
+      rejection_reason: f.rejection_reason || '',
+    }
+  })
 
   const results = domains.map((row) => {
     const out: Record<string, string> = { 'email domain': row.email_domain, enriched_at: row.enriched_at }
@@ -20,7 +28,11 @@ export async function GET(req: NextRequest) {
       out[csvField] = (row[dbCol as keyof typeof row] as string) || ''
     })
     const fit = fitMap[row.email_domain]
-    if (fit) { out['good fit'] = fit.good_fit; out['good fit notes'] = fit.good_fit_notes }
+    if (fit) {
+      out['good fit'] = fit.good_fit
+      out['good fit notes'] = fit.good_fit_notes
+      out['rejection reason'] = fit.rejection_reason
+    }
     return out
   })
 
@@ -43,7 +55,7 @@ export async function POST(req: NextRequest) {
   await upsertDomain(dbRow)
 
   if (enriched['good fit']) {
-    await upsertGoodFit(normalizedDomain, normalizedCountry, enriched['good fit'], enriched['good fit notes'] || '')
+    await upsertGoodFit(normalizedDomain, normalizedCountry, enriched['good fit'], enriched['good fit notes'] || '', enriched['rejection reason'] || '')
   }
 
   const result: Record<string, string> = { 'email domain': normalizedDomain }
