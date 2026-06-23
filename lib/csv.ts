@@ -97,7 +97,7 @@ export const CSV_TO_DB: Record<string, string> = {
 }
 
 // Fields NOT cached (country-dependent or per-lead)
-export const UNCACHED_FIELDS = ['good fit', 'good fit notes']
+export const UNCACHED_FIELDS = ['good fit', 'good fit notes', 'rejection reason']
 
 export const DB_TO_CSV: Record<string, string> = Object.fromEntries(
   Object.entries(CSV_TO_DB).map(([k, v]) => [v, k])
