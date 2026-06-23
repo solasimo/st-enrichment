@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getDomain, upsertDomain, getGoodFit, upsertGoodFit } from '@/lib/db'
 import { enrichDomain, evaluateGoodFit } from '@/lib/claude'
@@ -13,7 +15,6 @@ export async function POST(req: NextRequest) {
     const normalizedDomain = domain.toLowerCase().trim()
     const country = (existingData['country'] || '').toUpperCase()
 
-    // 1. Check domain cache
     const cached = await getDomain(normalizedDomain)
 
     if (cached) {
@@ -23,37 +24,34 @@ export async function POST(req: NextRequest) {
         if (val && !result[csvField]) result[csvField] = String(val)
       })
 
-      // Check good fit cache
       const cachedFit = await getGoodFit(normalizedDomain, country)
       if (cachedFit) {
         result['good fit'] = cachedFit.good_fit || ''
         result['good fit notes'] = cachedFit.good_fit_notes || ''
+        result['rejection reason'] = cachedFit.rejection_reason || ''
       } else {
         const fit = await evaluateGoodFit(result, country)
-        Object.entries(fit).forEach(([k, v]) => { if (v) result[k] = v })
-        await upsertGoodFit(normalizedDomain, country, fit['good fit'] || '', fit['good fit notes'] || '')
+        Object.entries(fit).forEach(([k, v]) => { if (v !== undefined) result[k] = v })
+        await upsertGoodFit(normalizedDomain, country, fit['good fit'] || '', fit['good fit notes'] || '', fit['rejection reason'] || '')
       }
 
       return NextResponse.json({ result, source: 'cache', cachedAt: cached.enriched_at })
     }
 
-    // 2. Full enrichment
     const enriched = await enrichDomain(normalizedDomain, existingData)
 
-    // Save domain fields
     const dbRow: Record<string, string | null> = { email_domain: normalizedDomain }
     Object.entries(CSV_TO_DB).forEach(([csvField, dbCol]) => {
       dbRow[dbCol] = enriched[csvField] || existingData[csvField] || null
     })
     await upsertDomain(dbRow)
 
-    // Save good fit
     if (enriched['good fit']) {
-      await upsertGoodFit(normalizedDomain, country, enriched['good fit'], enriched['good fit notes'] || '')
+      await upsertGoodFit(normalizedDomain, country, enriched['good fit'], enriched['good fit notes'] || '', enriched['rejection reason'] || '')
     }
 
     const result: LeadRow = { ...existingData }
-    Object.entries(enriched).forEach(([k, v]) => { if (v) result[k] = v })
+    Object.entries(enriched).forEach(([k, v]) => { if (v !== undefined) result[k] = v })
 
     return NextResponse.json({ result, source: 'ai' })
   } catch (err) {
